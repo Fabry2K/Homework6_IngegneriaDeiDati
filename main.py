@@ -1,4 +1,5 @@
-import pandas as pd
+import dataset_stats as stats
 
-df1 = pd.read_csv("veihcles.csv")
-df2 = pd.read_csv("used_cars_data.csv")
+
+stats.count_nulls_and_uniques_big_csv("vehicles.csv", "vehicles")
+stats.count_nulls_and_uniques_big_csv("used_cars_data.csv", "used_cars_data")
