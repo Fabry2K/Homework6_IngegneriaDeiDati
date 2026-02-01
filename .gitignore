@@ -1,0 +1,16 @@
+===== Python =====
+venv/
+pycache/
+*.py[cod]
+
+===== File CSV =====
+used_cars_data.csv
+vehicles.csv
+
+===== OS / editor =====
+.DS_Store
+.vscode/
+.idea/
+
+ 
+ 
