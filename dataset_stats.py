@@ -1,6 +1,16 @@
 import pandas as pd
 from collections import defaultdict
 
+# ==============================
+# Impostazioni per stampa completa
+# ==============================
+pd.set_option("display.max_rows", None)        # stampa tutte le righe
+pd.set_option("display.max_columns", None)     # stampa tutte le colonne
+pd.set_option("display.width", None)           # nessun limite di larghezza
+pd.set_option("display.max_colwidth", None)    # stampa completa del contenuto delle celle
+
+
+
 def count_nulls_and_uniques_big_csv(path, name, chunksize=50_000):
     null_counts = None
     unique_sets = defaultdict(set)

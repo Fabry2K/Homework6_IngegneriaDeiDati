@@ -6,6 +6,8 @@ pycache/
 ===== File CSV =====
 used_cars_data.csv
 vehicles.csv
+vehicles_aligned.csv
+used_cars_aligned.csv
 
 ===== OS / editor =====
 .DS_Store
