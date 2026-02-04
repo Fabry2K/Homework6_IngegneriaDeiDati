@@ -4,6 +4,7 @@ import pandas as pd
 # Schema mediato aggiornato
 # ==============================
 schema_mediato_columns = [
+    "id",
     "vin",
     "manufacturer",
     "model",
@@ -13,16 +14,15 @@ schema_mediato_columns = [
     "fuel_type",
     "transmission",
     "body_type",
-    "region",     # region from vehicles.csv
-    "city",       # city from used_cars_data.csv
-    "latitude",
-    "longitude"
+    "cylinders",
+    "invalid"
 ]
 
 # ==============================
 # Dizionari di rinomina interni
 # ==============================
 vehicles_rename = {
+    "id": "id",
     "VIN": "vin",
     "manufacturer": "manufacturer",
     "model": "model",
@@ -32,13 +32,11 @@ vehicles_rename = {
     "fuel": "fuel_type",
     "transmission": "transmission",
     "type": "body_type",
-    "region": "region",       # mantiene la regione Craigslist
-    "lat": "latitude",
-    "long": "longitude"
-    # city non esiste in vehicles.csv
+    "cylinders":"cylinders"
 }
 
 used_cars_rename = {
+    "listing_id": "id",
     "vin": "vin",
     "make_name": "manufacturer",
     "model_name": "model",
@@ -48,10 +46,7 @@ used_cars_rename = {
     "fuel_type": "fuel_type",
     "transmission": "transmission",
     "body_type": "body_type",
-    "city": "city",           # city reale
-    "latitude": "latitude",
-    "longitude": "longitude"
-    # region non esiste in used_cars_data.csv
+    "engine_cylinders":"cylinders"
 }
 
 # ==============================
