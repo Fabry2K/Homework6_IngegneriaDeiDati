@@ -2,13 +2,17 @@ import pandas as pd
 import random
 
 # ===============================
-# CONFIGURAZIONE FILE E CHUNKSIZE
+# CONFIGURAZIONE
 # ===============================
 VEHICLES_ALIGNED_CSV = "vehicles_aligned.csv"
 USED_CARS_ALIGNED_CSV = "used_cars_aligned.csv"
 OUTPUT_CSV = "ground_truth.csv"
+
 CHUNKSIZE = 100_000
 NON_MATCHES_PER_MATCH = 5
+RANDOM_SEED = 42
+
+random.seed(RANDOM_SEED)
 
 # ===============================
 # FUNZIONE PRINCIPALE
@@ -20,95 +24,112 @@ def create_ground_truth(
     chunksize=CHUNKSIZE,
     non_matches_per_match=NON_MATCHES_PER_MATCH
 ):
-    """
-    Crea la ground-truth con match e non-match.
-    Usa SOLO record con:
-      - invalid == 0
-      - vin presente
-    """
-
     print("Creazione ground-truth in corso...")
 
     # ===============================
-    # 1️⃣ Costruzione indice VIN -> used_cars_id
+    # 1️⃣ CARICAMENTO RECORD VALIDi
     # ===============================
-    vin_to_used_ids = {}
-    all_used_rows = []  # (id, vin) solo validi
+    print("Caricamento record validi...")
 
-    for chunk in pd.read_csv(used_cars_csv, chunksize=chunksize):
-        # teniamo solo record validi
-        chunk = chunk[
-            (chunk["invalid"] == 0) &
-            (chunk["vin"].notna()) &
-            (chunk["vin"].astype(str).str.strip() != "")
-        ]
+    vehicles_valid = []
+    used_cars_valid = []
 
-        for _, row in chunk.iterrows():
-            vin = row["vin"]
-            u_id = row["id"]
-
-            vin_to_used_ids.setdefault(vin, []).append(u_id)
-            all_used_rows.append((u_id, vin))
-
-    print(f"VIN distinti validi in used_cars: {len(vin_to_used_ids)}")
-    print(f"Record used_cars validi: {len(all_used_rows)}")
-
-    # ===============================
-    # 2️⃣ Scansione vehicles e generazione match / non-match
-    # ===============================
-    first_chunk = True
-
+    # --- vehicles ---
     for chunk in pd.read_csv(vehicles_csv, chunksize=chunksize):
-        rows = []
-
-        # teniamo solo record validi
         chunk = chunk[
             (chunk["invalid"] == 0) &
             (chunk["vin"].notna()) &
             (chunk["vin"].astype(str).str.strip() != "")
         ]
 
-        for _, v_row in chunk.iterrows():
-            vin_v = v_row["vin"]
-            v_id = v_row["id"]
+        vehicles_valid.extend(
+            [(row["id"], row["vin"]) for _, row in chunk.iterrows()]
+        )
 
-            # -------- MATCH --------
-            if vin_v in vin_to_used_ids:
-                for u_id in vin_to_used_ids[vin_v]:
-                    rows.append({
-                        "vehicles_id": v_id,
-                        "used_cars_id": u_id,
-                        "label": 1
-                    })
+    # --- used_cars ---
+    for chunk in pd.read_csv(used_cars_csv, chunksize=chunksize):
+        chunk = chunk[
+            (chunk["invalid"] == 0) &
+            (chunk["vin"].notna()) &
+            (chunk["vin"].astype(str).str.strip() != "")
+        ]
 
-                # -------- NON-MATCH --------
-                # generiamo non-match SOLO se esiste almeno un match
-                candidates = [
-                    u for u, vin_u in all_used_rows if vin_u != vin_v
-                ]
+        used_cars_valid.extend(
+            [(row["id"], row["vin"]) for _, row in chunk.iterrows()]
+        )
 
-                if len(candidates) >= non_matches_per_match:
-                    sampled = random.sample(candidates, non_matches_per_match)
-                    for u_id in sampled:
-                        rows.append({
-                            "vehicles_id": v_id,
-                            "used_cars_id": u_id,
-                            "label": 0
-                        })
+    print(f"Vehicles validi: {len(vehicles_valid)}")
+    print(f"Used cars validi: {len(used_cars_valid)}")
 
-        # ===============================
-        # Scrittura su CSV
-        # ===============================
-        if rows:
-            df_out = pd.DataFrame(rows)
-            df_out.to_csv(
-                output_csv,
-                mode="w" if first_chunk else "a",
-                header=first_chunk,
-                index=False
-            )
-            first_chunk = False
+    # ===============================
+    # 2️⃣ GENERAZIONE MATCH
+    # ===============================
+    print("Generazione match...")
 
-    print(f"Ground-truth creata in '{output_csv}'")
-    print(f"Rapporto non-match per match: {non_matches_per_match}")
+    vin_to_used_ids = {}
+    for u_id, vin in used_cars_valid:
+        vin_to_used_ids.setdefault(vin, []).append(u_id)
 
+    matches = []
+    for v_id, vin_v in vehicles_valid:
+        if vin_v in vin_to_used_ids:
+            for u_id in vin_to_used_ids[vin_v]:
+                matches.append((v_id, u_id, 1))
+
+    print(f"Match trovati: {len(matches)}")
+
+    if len(matches) == 0:
+        print("⚠️ Nessun match trovato. Ground-truth non creata.")
+        return
+
+    # ===============================
+    # 3️⃣ GENERAZIONE NON-MATCH CASUALI
+    # ===============================
+    print("Generazione non-match casuali...")
+
+    target_non_matches = len(matches) * non_matches_per_match
+    non_matches = set()
+
+    match_pairs = {(v, u) for v, u, _ in matches}
+
+    while len(non_matches) < target_non_matches:
+        v_id, vin_v = random.choice(vehicles_valid)
+        u_id, vin_u = random.choice(used_cars_valid)
+
+        # VIN diversi
+        if vin_v == vin_u:
+            continue
+
+        # Evita collisioni con match veri
+        if (v_id, u_id) in match_pairs:
+            continue
+
+        non_matches.add((v_id, u_id, 0))
+
+        if len(non_matches) % 100_000 == 0:
+            print(f"  Non-match generati: {len(non_matches)} / {target_non_matches}")
+
+    print(f"Non-match generati: {len(non_matches)}")
+
+    # ===============================
+    # 4️⃣ SCRITTURA OUTPUT
+    # ===============================
+    print("Scrittura file di output...")
+
+    df_out = pd.DataFrame(
+        matches + list(non_matches),
+        columns=["vehicles_id", "used_cars_id", "label"]
+    )
+
+    df_out.to_csv(output_csv, index=False)
+
+    print(f"✅ Ground-truth creata in '{output_csv}'")
+    print(f"Totale coppie: {len(df_out)}")
+    print(f"Rapporto non-match/match: {non_matches_per_match}:1")
+
+
+# ===============================
+# ENTRY POINT
+# ===============================
+if __name__ == "__main__":
+    create_ground_truth()
