@@ -11,6 +11,9 @@ used_cars_aligned.csv
 vehicles_marked.csv
 used_cars_marked.csv
 ground_truth.csv
+test.csv
+train.csv
+validation.csv
 
 ===== OS / editor =====
 .DS_Store
