@@ -1,6 +1,8 @@
 import pandas as pd
 import math
 import random
+from collections import defaultdict
+import re
 
 def check_representativity(
     input_csv,
@@ -99,7 +101,82 @@ CHUNKSIZE = 100_000
 
 
 # ==========================================================
-# 1️⃣ RIMOZIONE VIN DAI DATASET ALIGNED
+# COUNT NULLS AND UNIQUES VALUES IN THE CSV FILE
+# ==========================================================
+
+# Impostazioni per stampa completa
+pd.set_option("display.max_rows", None)        # stampa tutte le righe
+pd.set_option("display.max_columns", None)     # stampa tutte le colonne
+pd.set_option("display.width", None)           # nessun limite di larghezza
+pd.set_option("display.max_colwidth", None)    # stampa completa del contenuto delle celle
+
+def count_nulls_and_uniques(path, name, chunksize=50_000):
+    null_counts = None
+    unique_sets = defaultdict(set)
+    total_rows = 0
+
+    for chunk in pd.read_csv(path, chunksize=chunksize):
+        if null_counts is None:
+            null_counts = chunk.isnull().sum()
+        else:
+            null_counts += chunk.isnull().sum()
+
+        for col in chunk.columns:
+            unique_sets[col].update(chunk[col].dropna().unique())
+
+        total_rows += len(chunk)
+
+    report = pd.DataFrame({
+        "null_count": null_counts,
+        "null_%": (null_counts / total_rows) * 100,
+        "unique_values": {col: len(vals) for col, vals in unique_sets.items()}
+    })
+
+    report["null_%"] = report["null_%"].round(2)
+    report = report.sort_values(by="null_%", ascending=False)
+
+    print("=" * 80)
+    print(f"DATASET: {name}")
+    print(f"Numero di record: {total_rows}")
+    print(f"Numero di attributi: {len(report)}")
+    print("=" * 80)
+    print(report)
+
+    return report
+
+
+def find_duplicates(input_csv):
+    file = pd.read_csv(input_csv)
+    cols_to_check = [col for col in file.columns if col not in ['id', 'url', 'posting_date', 'region', 'region_url', 'price', 'odometer', 'title_status', 'size', 'type', 'image_url', 'state', 'lat', 'long']]
+
+    duplicati_5 = file[file.duplicated(subset=cols_to_check, keep=False)]
+    print(duplicati_5.info())
+
+
+# def invalid_vin(){
+#     df = df.drop(columns=['county'], inplace=False)
+#     dataset = df.copy().dropna(subset=['VIN'])
+
+
+#     regex per VIN valido
+#     VIN_REGEX = re.compile(r'^[A-HJ-NPR-Z0-9]{17}$', re.IGNORECASE)
+
+#     filtro base: lunghezza 17
+#     dataset = dataset[dataset['VIN'].str.len() == 17]
+
+#     filtro avanzato: solo caratteri validi e non solo numerici o alfabetici
+#     dataset = dataset[
+#         dataset['VIN'].str.fullmatch(VIN_REGEX) &  # solo caratteri validi
+#         ~dataset['VIN'].str.fullmatch(r'\d{17}') &  # esclude 0solo numerici
+#         ~dataset['VIN'].str.fullmatch(r'[A-Za-z]{17}')  # esclude solo alfabetici
+#     ].copy()
+# }
+
+
+
+
+# ==========================================================
+# RIMOZIONE VIN DAI DATASET ALIGNED
 # ==========================================================
 def remove_vin(
     vehicles_input,
@@ -136,7 +213,7 @@ def remove_vin(
 
 
 # ==========================================================
-# 2️⃣ RIMOZIONE VIN DALLA GROUND TRUTH
+# RIMOZIONE VIN DALLA GROUND TRUTH
 # ==========================================================
 def remove_vin_from_ground_truth(
     ground_truth_input,
@@ -174,7 +251,7 @@ def remove_vin_from_ground_truth(
 
 
 # ==========================================================
-# 3️⃣ SPLIT GROUND TRUTH IN TRAIN / VAL / TEST
+# SPLIT GROUND TRUTH IN TRAIN / VAL / TEST
 # ==========================================================
 def split_ground_truth(
     ground_truth_input,
