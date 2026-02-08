@@ -14,7 +14,8 @@ schema_mediato_columns = [
     "body_type",
     "cylinders",
     "drive",
-    "color"
+    "color",
+    "invalid"
 ]
 
 # ==============================
@@ -31,7 +32,7 @@ vehicles_rename = {
     "type": "body_type",
     "cylinders": "cylinders",
     "drive": "drive",
-    "paint_color": "color"
+    "paint_color": "color",
 }
 
 used_cars_rename = {
@@ -44,7 +45,7 @@ used_cars_rename = {
     "transmission": "transmission",
     "body_type": "body_type",
     "engine_cylinders": "cylinders",
-    "wheel_name": "drive",
+    "wheel_system": "drive",
     "exterior_color": "color"
 }
 
@@ -55,7 +56,7 @@ def align_dataset(input_path, output_path, dataset_type="vehicles", chunksize=50
     """
     Legge il CSV in chunk, rinomina le colonne secondo lo schema mediato interno,
     seleziona solo le colonne dello schema mediato e salva in un CSV finale.
-    
+
     dataset_type: "vehicles" o "used_cars"
     """
     if dataset_type == "vehicles":
@@ -71,14 +72,21 @@ def align_dataset(input_path, output_path, dataset_type="vehicles", chunksize=50
         # rinomina colonne
         chunk_aligned = chunk.rename(columns=rename_dict)
 
-        # seleziona solo le colonne presenti dello schema mediato
-        existing_columns = [col for col in schema_mediato_columns if col in chunk_aligned.columns]
-        chunk_aligned = chunk_aligned[existing_columns]
+        # 👉 AGGIUNTA: crea la colonna invalid (sempre 0)
+        chunk_aligned["invalid"] = 0
+
+        # seleziona solo le colonne dello schema mediato
+        chunk_aligned = chunk_aligned[schema_mediato_columns]
 
         # scrive su CSV
-        chunk_aligned.to_csv(output_path, index=False, mode='w' if first_chunk else 'a', header=first_chunk)
-        first_chunk = False
+        chunk_aligned.to_csv(
+            output_path,
+            index=False,
+            mode='w' if first_chunk else 'a',
+            header=first_chunk
+        )
 
+        first_chunk = False
         print(f"Processed {len(chunk_aligned)} rows from {input_path}")
 
     print(f"Allineamento completato: {output_path}")

@@ -7,10 +7,15 @@ pycache/
 used_cars_data.csv
 vehicles.csv
 vehicles_aligned.csv
+vehicles_cleaned.csv
+vehicles_ispezione.csv
 used_cars_aligned.csv
 vehicles_marked.csv
 used_cars_marked.csv
 ground_truth.csv
+ground_truth_final.csv
+used_cars_final.csv
+vehicles_final.csv
 test.csv
 train.csv
 validation.csv

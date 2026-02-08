@@ -1,8 +1,7 @@
 import mediated_schema as ms
-import create_ground_truth as gt
-import mark_invalids as invalids
+import ground_truth as gt
+import vin_checks as checks
 import utils
-import create_gtv2 as gtv2
 
 
 
@@ -19,36 +18,49 @@ import create_gtv2 as gtv2
 # STEP 3: ALLINEAMENTO DEI DATASET
 # ================================
 
-# 3.1: gestire VIN MANCANTI, al massimo si può controllare se si può ricavare dal secondo dataset
+# 3.1: CLUSTERING per i duplicati. I Placeholder formano un cluster a sè, ma vengono comunque ignorati per la ground truth
+# utils.deduplicate_csv(
+#    csv_path="vehicles.csv",
+#    csv_out_clean="vehicles_cleaned.csv",
+#    csv_out_duplicates="vehicles_ispezione.csv",
+#    desc_threshold=0.7
+# )
 
-# 3.2: CLUSTERING per i duplicati. I Placeholder formano un cluster a sè, ma vengono comunque ignorati per la ground truth
-utils.find_duplicates("vehicles.csv")
+# utils.count_nulls_and_uniques("vehicles.csv", "vehicles")
+# utils.count_nulls_and_uniques("vehicles_cleaned.csv", "vehicles_cleaned")
 
 
-# 3.3: schema mediato: capire quali attributi servono (da entrambi i dataset), mantenere anche quelli degli annunci
+# 3.2: schema mediato: capire quali attributi servono (da entrambi i dataset), mantenere anche quelli degli annunci
 
-# ms.align_dataset("vehicles.csv", "vehicles_aligned.csv", dataset_type="vehicles")
+# ms.align_dataset("vehicles_cleaned.csv", "vehicles_aligned.csv", dataset_type="vehicles")
 # ms.align_dataset("used_cars_data.csv", "used_cars_aligned.csv", dataset_type="used_cars")
 
-# utils.count_nulls_and_uniques("vehicles.csv", "vehicles_aligned")
-# utils.count_nulls_and_uniques("used_cars_data.csv", "used_cars_aligned")
 
-# utils.check_representativity("vehicles_marked.csv")
-# utils.check_representativity("used_cars_marked.csv")
+# utils.count_nulls_and_uniques("vehicles_aligned.csv", "vehicles_aligned")
+# utils.count_nulls_and_uniques("used_cars_aligned.csv", "used_cars_aligned")
+
+# 3.3: set del campo invalid = 1 per record con: VIN 
+
+# checks.mark_invalid_vin('vehicles_aligned.csv','vehicles_marked.csv',200000)
+# checks.mark_invalid_duplicate_vins('vehicles_marked.csv','vehicles_final.csv')
+
+
+
 
 # ======================================
 # STEP 4.a: CREAZIONE DELLA GROUND TRUTH
 # ======================================
 #
-# per ogni match si creano 5 non match
-# la GROUND TRUTH va fatta confrontando i cluster ricavati dal primo file con i record del secondo file: 
-# ogni cluster viene visto come una sola entità
+# per ogni match si creano 2 non match
+# per la creazione dei match e dei non match vengono considerati solo i record con Invalid = 0
 
-# gt.create_ground_truth(
-#     vehicles_csv="vehicles_marked.csv",
-#     used_cars_csv="used_cars_marked.csv",
-#     output_csv="ground_truth.csv",
-#     chunksize=100_000
+# gt.build_ground_truth(
+#    file_a = 'vehicles_final.csv',
+#    file_b = 'used_cars_aligned.csv',
+#    output_gt = 'ground_truth.csv',
+#    chunksize=200_000,
+#    negatives_per_match=2,
+#    random_seed=42
 # )
 
 
@@ -58,18 +70,21 @@ utils.find_duplicates("vehicles.csv")
 #
 # si rimuove il campo VIN dai file allineati e dalla GROUND TRUTH
 
-# utils.remove_vin(
-#     vehicles_input="vehicles_aligned.csv",
-#     used_cars_input="used_cars_aligned.csv",
-#     vehicles_output="vehicles_aligned.csv",
-#     used_cars_output="vehicles_aligned.csv"
+# utils.remove_vin_from_dataset(
+#     "vehicles_final.csv",
+#     "vehicles_final.csv"
 # )
 
-# utils.remove_vin_from_ground_truth(
-#     ground_truth_input="ground_truth.csv",
-#     ground_truth_output="ground_truth.csv"
+# utils.remove_vin_from_dataset(
+#     "used_cars_aligned.csv",
+#     "used_cars_final.csv"
 # )
 
+
+# utils.remove_vins_from_ground_truth(
+#     "ground_truth.csv",
+#     "ground_truth_final.csv"
+# )
 
 # ===============================
 # STEP 4c – SPLIT GROUND TRUTH
@@ -78,8 +93,13 @@ utils.find_duplicates("vehicles.csv")
 # split della GROUND TRUTH: 70 - 15 - 15 
 
 # utils.split_ground_truth(
-#     ground_truth_input="ground_truth.csv",
-#     train_output="train.csv",
-#     val_output="validation.csv",
-#     test_output="test.csv"
+#    input_gt = 'ground_truth.csv',
+#    train_out = 'train.csv',
+#    val_out = 'validation.csv',
+#    test_out = 'test.csv',
+#    train_ratio=0.7,
+#    val_ratio=0.2,
+#    test_ratio=0.1,
+#    seed=42
 # )
+

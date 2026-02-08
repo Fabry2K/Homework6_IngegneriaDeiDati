@@ -3,6 +3,9 @@ import math
 import random
 from collections import defaultdict
 import re
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 def check_representativity(
     input_csv,
@@ -92,7 +95,6 @@ def check_representativity(
 
     print("\nAnalisi completata.\n")
 
-import pandas as pd
 
 # ===============================
 # CONFIGURAZIONE GENERALE
@@ -145,169 +147,326 @@ def count_nulls_and_uniques(path, name, chunksize=50_000):
     return report
 
 
-def find_duplicates(input_csv):
-    file = pd.read_csv(input_csv)
-    cols_to_check = [col for col in file.columns if col not in ['id', 'url', 'posting_date', 'region', 'region_url', 'price', 'odometer', 'title_status', 'size', 'type', 'image_url', 'state', 'lat', 'long']]
+def desc_similarity_block(descriptions):
+    """
+    Calcola la matrice di similarità cosine tra le descrizioni.
+    """
+    vectorizer = TfidfVectorizer(
+        stop_words="english",
+        ngram_range=(1, 2),
+        min_df=1
+    )
+    tfidf = vectorizer.fit_transform(descriptions)
+    return cosine_similarity(tfidf)
 
-    duplicati_5 = file[file.duplicated(subset=cols_to_check, keep=False)]
-    print(duplicati_5.info())
-
-
-# def invalid_vin(){
-#     df = df.drop(columns=['county'], inplace=False)
-#     dataset = df.copy().dropna(subset=['VIN'])
-
-
-#     regex per VIN valido
-#     VIN_REGEX = re.compile(r'^[A-HJ-NPR-Z0-9]{17}$', re.IGNORECASE)
-
-#     filtro base: lunghezza 17
-#     dataset = dataset[dataset['VIN'].str.len() == 17]
-
-#     filtro avanzato: solo caratteri validi e non solo numerici o alfabetici
-#     dataset = dataset[
-#         dataset['VIN'].str.fullmatch(VIN_REGEX) &  # solo caratteri validi
-#         ~dataset['VIN'].str.fullmatch(r'\d{17}') &  # esclude 0solo numerici
-#         ~dataset['VIN'].str.fullmatch(r'[A-Za-z]{17}')  # esclude solo alfabetici
-#     ].copy()
-# }
-
-
-
-
-# ==========================================================
-# RIMOZIONE VIN DAI DATASET ALIGNED
-# ==========================================================
-def remove_vin(
-    vehicles_input,
-    used_cars_input,
-    vehicles_output,
-    used_cars_output,
-    chunksize=CHUNKSIZE
+def deduplicate_csv(
+    csv_path,
+    csv_out_clean,        # percorso del file pulito
+    csv_out_duplicates,   # percorso del file dei duplicati
+    desc_threshold=0.7
 ):
+    import pandas as pd
+    import hashlib
+    import csv
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+
+
+    # -------------------------
+    # Similarità descrizioni
+    # -------------------------
+    def desc_similarity_block(descriptions):
+        vectorizer = TfidfVectorizer(
+            stop_words="english",
+            ngram_range=(1, 2),
+            min_df=1,
+            max_features=5000
+        )
+        tfidf = vectorizer.fit_transform(descriptions)
+        return cosine_similarity(tfidf)
+
+    # -------------------------
+    # Hash helper
+    # -------------------------
+    def hash_row(s):
+        return hashlib.md5(s.encode("utf-8")).hexdigest()
+
+    # -------------------------
+    # Load
+    # -------------------------
+    df = pd.read_csv(csv_path)
+    initial_count = len(df)
+
+    # -------------------------
+    # Colonne da confrontare
+    # -------------------------
+    cols_to_check = [
+        col for col in df.columns
+        if col not in [
+            "id", "url", "posting_date", "region", "region_url",
+            "price", "odometer", "title_status", "size", "type",
+            "image_url", "state", "lat", "long"
+        ]
+    ]
+    cols_to_compare = [c for c in cols_to_check if c not in ["VIN", "description"]]
+
+    # -------------------------
+    # Colonne temporanee (NO modifica dati originali)
+    # -------------------------
+    df["_vin_norm"] = df["VIN"].fillna("__NULL_VIN__")
+    df["_desc_norm"] = df["description"].fillna("")
+
+    df["_base_str"] = (
+        df[cols_to_compare]
+        .fillna("__NULL__")
+        .astype(str)
+        .agg("|".join, axis=1)
+    )
+
+    df["_hash"] = df["_base_str"].apply(hash_row)
+
+    # -------------------------
+    # Deduplica
+    # -------------------------
+    to_drop = set()
+    involved = set()
+    processed = 0
+    removed = 0
+    total = len(df)
+
+    for vin_value, vin_cluster in df.groupby("_vin_norm"):
+        if len(vin_cluster) < 2:
+            continue
+
+        for _, hash_cluster in vin_cluster.groupby("_hash"):
+            indices = list(hash_cluster.index)
+            if len(indices) < 2:
+                continue
+
+            for i_idx in indices:
+                if i_idx in to_drop:
+                    continue
+
+                rec_i = df.loc[i_idx]
+
+                for j_idx in indices:
+                    if j_idx <= i_idx or j_idx in to_drop:
+                        continue
+
+                    rec_j = df.loc[j_idx]
+
+                    try:
+                        sim = desc_similarity_block(
+                            [rec_i["_desc_norm"], rec_j["_desc_norm"]]
+                        )
+                        desc_match = sim[0, 1] >= desc_threshold
+                    except ValueError:
+                        desc_match = rec_i["_desc_norm"] == rec_j["_desc_norm"]
+
+                    if desc_match:
+                        removed += 1
+                        print(
+                            f"Trovato doppione ({removed}) → "
+                            f"cancello index={j_idx} (master={i_idx})"
+                        )
+
+                        to_drop.add(j_idx)
+                        involved.update([i_idx, j_idx])
+
+                processed += 1
+                print(f"Record processati: {processed}/{total}")
+
+    # -------------------------
+    # Output finali
+    # -------------------------
+    df_clean = df.drop(index=list(to_drop))
+    df_duplicates = df.loc[list(involved)]
+
+    temp_cols = ["_vin_norm", "_desc_norm", "_base_str", "_hash"]
+    df_clean = df_clean.drop(columns=temp_cols)
+    df_duplicates = df_duplicates.drop(columns=temp_cols)
+
+    # 🔐 FIX FONDAMENTALE: quoting corretto
+    df_clean.to_csv(
+        csv_out_clean,
+        index=False,
+        quoting=csv.QUOTE_ALL,
+        escapechar="\\"
+    )
+
+    df_duplicates.to_csv(
+        csv_out_duplicates,
+        index=False,
+        quoting=csv.QUOTE_ALL,
+        escapechar="\\"
+    )
+
+    print("\nDeduplicazione completata")
+    print(f"Record iniziali: {initial_count}")
+    print(f"Record eliminati: {removed}")
+    print(f"Record finali: {len(df_clean)}")
+
+    return df_clean, df_duplicates, removed
+
+
+# Extract records with invalid = 0
+def extract_valid_records(input_csv, output_csv, chunksize=200_000):
     """
-    Rimuove la colonna VIN dai file aligned (vehicles e used_cars)
-    lavorando a chunk per non saturare la RAM.
+    Estrae tutti i record con 'invalid' == 0 e li scrive in un nuovo CSV.
+    Lavora a chunk per file grandi.
     """
+    first_chunk = True
+    total_written = 0
 
-    def _process(input_csv, output_csv):
-        first_chunk = True
+    for chunk in pd.read_csv(input_csv, chunksize=chunksize):
+        # Assicurati che la colonna 'invalid' esista
+        if 'invalid' not in chunk.columns:
+            raise ValueError("'invalid' column not found in CSV")
 
-        for chunk in pd.read_csv(input_csv, chunksize=chunksize):
-            if "vin" in chunk.columns:
-                chunk = chunk.drop(columns=["vin"])
+        # Filtra i record validi
+        valid_chunk = chunk[chunk['invalid'] == 0]
 
-            chunk.to_csv(
+        # Scrivi su CSV
+        if not valid_chunk.empty:
+            valid_chunk.to_csv(
                 output_csv,
-                mode="w" if first_chunk else "a",
-                header=first_chunk,
-                index=False
+                mode='w' if first_chunk else 'a',
+                index=False,
+                header=first_chunk
             )
-
             first_chunk = False
+            total_written += len(valid_chunk)
 
-        print(f"✅ Creato file senza VIN: {output_csv}")
+        print(f"Processato chunk di {len(chunk)} righe, scritti {len(valid_chunk)} validi")
 
-    _process(vehicles_input, vehicles_output)
-    _process(used_cars_input, used_cars_output)
+    print(f"\nEstrazione completata: {total_written} record validi scritti in {output_csv}")
 
 
-# ==========================================================
-# RIMOZIONE VIN DALLA GROUND TRUTH
-# ==========================================================
-def remove_vin_from_ground_truth(
-    ground_truth_input,
-    ground_truth_output,
-    chunksize=CHUNKSIZE
-):
+
+def count_unique_vins_in_memory(input_csv):
     """
-    Rimuove vehicles_vin e used_cars_vin dalla ground truth.
+    Conta quanti VIN nel CSV appaiono solo in un record (non duplicati)
+    caricando tutto in memoria.
     """
+    # Carica tutto in memoria
+    df = pd.read_csv(input_csv, usecols=['vin'])
+
+    # Rimuovi VIN vuoti o NaN
+    df = df[df['vin'].notna() & (df['vin'].str.strip() != "")]
+
+    # Conta quante volte appare ogni VIN
+    vin_counts = df['vin'].value_counts()
+
+    # Seleziona quelli che appaiono solo 1 volta
+    unique_vins = vin_counts[vin_counts == 1]
+
+    print(f"Totale VIN nel file: {len(vin_counts)}")
+    print(f"VIN non duplicati (occurrence = 1): {len(unique_vins)}")
+
+    return unique_vins.index.tolist()  # opzionale: ritorna la lista dei VIN unici
+
+
+#Remove VIN from a normal csv file
+def remove_vin_from_dataset(input_csv, output_csv, chunksize=200_000):
+    """
+    Rimuove la colonna 'vin' da un CSV e salva il risultato su output_csv.
+    Lavora a chunk.
+    """
+    print(f"🧹 Rimozione campo VIN da {input_csv}...")
 
     first_chunk = True
 
-    for chunk in pd.read_csv(ground_truth_input, chunksize=chunksize):
+    for chunk_idx, chunk in enumerate(pd.read_csv(input_csv, chunksize=chunksize)):
+        if "vin" in chunk.columns:
+            chunk = chunk.drop(columns=["vin"])
 
-        cols_to_drop = []
-        if "vehicles_vin" in chunk.columns:
-            cols_to_drop.append("vehicles_vin")
-        if "used_cars_vin" in chunk.columns:
-            cols_to_drop.append("used_cars_vin")
+        chunk.to_csv(
+            output_csv,
+            mode="w" if first_chunk else "a",
+            index=False,
+            header=first_chunk
+        )
 
+        first_chunk = False
+        print(f"✔ Processato chunk {chunk_idx} ({len(chunk)} righe)")
+
+    print(f"✅ File salvato senza VIN: {output_csv}")
+
+#Remove VIN from ground truth file
+def remove_vins_from_ground_truth(input_gt, output_gt, chunksize=200_000):
+    """
+    Rimuove i campi 'a_vin' e 'b_vin' dalla ground truth.
+    Lavora a chunk.
+    """
+    print(f"🧹 Rimozione a_vin e b_vin da {input_gt}...")
+
+    first_chunk = True
+
+    for chunk_idx, chunk in enumerate(pd.read_csv(input_gt, chunksize=chunksize)):
+        cols_to_drop = [c for c in ["a_vin", "b_vin"] if c in chunk.columns]
         if cols_to_drop:
             chunk = chunk.drop(columns=cols_to_drop)
 
         chunk.to_csv(
-            ground_truth_output,
+            output_gt,
             mode="w" if first_chunk else "a",
-            header=first_chunk,
-            index=False
+            index=False,
+            header=first_chunk
         )
 
         first_chunk = False
+        print(f"✔ Processato chunk {chunk_idx} ({len(chunk)} righe)")
 
-    print(f"✅ Ground truth senza VIN creata: {ground_truth_output}")
+    print(f"✅ Ground truth senza VIN salvata in: {output_gt}")
 
+import pandas as pd
+import numpy as np
 
-
-# ==========================================================
-# SPLIT GROUND TRUTH IN TRAIN / VAL / TEST
-# ==========================================================
 def split_ground_truth(
-    ground_truth_input,
-    train_output,
-    val_output,
-    test_output,
+    input_gt,
+    train_out,
+    val_out,
+    test_out,
     train_ratio=0.7,
-    val_ratio=0.15,
-    test_ratio=0.15,
-    chunksize=CHUNKSIZE
+    val_ratio=0.2,
+    test_ratio=0.1,
+    seed=42
 ):
-    assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6
+    """
+    Divide la ground truth in train / validation / test.
 
-    print("📂 Split ground truth in train / val / test...")
+    Split default: 70% train, 20% validation, 10% test
+    """
+    assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6, \
+        "Le percentuali devono sommare a 1"
 
-    # writer state
-    writers = {
-        "train": {"path": train_output, "first": True},
-        "val": {"path": val_output, "first": True},
-        "test": {"path": test_output, "first": True},
-    }
+    print(f"📥 Caricamento ground truth da {input_gt}...")
+    df = pd.read_csv(input_gt)
 
-    def _write(df, key):
-        w = writers[key]
-        df.to_csv(
-            w["path"],
-            mode="w" if w["first"] else "a",
-            header=w["first"],
-            index=False
-        )
-        w["first"] = False
+    total = len(df)
+    print(f"📊 Record totali: {total}")
 
-    for chunk in pd.read_csv(ground_truth_input, chunksize=chunksize):
+    # shuffle riproducibile
+    df = df.sample(frac=1, random_state=seed).reset_index(drop=True)
 
-        # split stratificato sulla label
-        for label_value, group in chunk.groupby("label"):
+    train_end = int(total * train_ratio)
+    val_end = train_end + int(total * val_ratio)
 
-            indices = list(group.index)
-            random.shuffle(indices)
+    df_train = df.iloc[:train_end]
+    df_val = df.iloc[train_end:val_end]
+    df_test = df.iloc[val_end:]
 
-            n = len(indices)
-            n_train = int(n * train_ratio)
-            n_val = int(n * val_ratio)
-
-            train_idx = indices[:n_train]
-            val_idx = indices[n_train:n_train + n_val]
-            test_idx = indices[n_train + n_val:]
-
-            if train_idx:
-                _write(group.loc[train_idx], "train")
-            if val_idx:
-                _write(group.loc[val_idx], "val")
-            if test_idx:
-                _write(group.loc[test_idx], "test")
+    # scrittura file
+    df_train.to_csv(train_out, index=False)
+    df_val.to_csv(val_out, index=False)
+    df_test.to_csv(test_out, index=False)
 
     print("✅ Split completato:")
-    print(f"  • Train → {train_output}")
-    print(f"  • Val   → {val_output}")
-    print(f"  • Test  → {test_output}")
+    print(f"  🟢 Train:      {len(df_train)} ({len(df_train)/total:.1%})")
+    print(f"  🟡 Validation: {len(df_val)} ({len(df_val)/total:.1%})")
+    print(f"  🔵 Test:       {len(df_test)} ({len(df_test)/total:.1%})")
+
+    print("\n📁 File generati:")
+    print(f"  - {train_out}")
+    print(f"  - {val_out}")
+    print(f"  - {test_out}")
