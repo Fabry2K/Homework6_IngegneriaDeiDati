@@ -1,7 +1,9 @@
 import mediated_schema as ms
 import ground_truth as gt
 import vin_checks as checks
+import normalization as norm
 import utils
+import pandas as pd
 
 
 
@@ -46,6 +48,28 @@ import utils
 
 
 
+# ===============================
+# NORMALIZZAZIONE DEI CAMPI
+# ===============================
+
+
+# norm.normalize_all(
+#     input_csv = 'vehicles_final.csv', 
+#     output_csv = 'vehicles_final.csv'
+# )
+
+# norm.normalize_all(
+#     input_csv = 'used_cars_aligned.csv', 
+#     output_csv = 'used_cars_aligned.csv'
+# )
+
+# dataset = pd.read_csv('vehicles_final.csv')
+# print(dataset['model'].value_counts())
+
+# dataset = pd.read_csv('used_cars_aligned.csv')
+# print(dataset['model'].value_counts())
+
+
 
 # ======================================
 # STEP 4.a: CREAZIONE DELLA GROUND TRUTH
@@ -54,14 +78,14 @@ import utils
 # per ogni match si creano 2 non match
 # per la creazione dei match e dei non match vengono considerati solo i record con Invalid = 0
 
-# gt.build_ground_truth(
-#    file_a = 'vehicles_final.csv',
-#    file_b = 'used_cars_aligned.csv',
-#    output_gt = 'ground_truth.csv',
-#    chunksize=200_000,
-#    negatives_per_match=2,
-#    random_seed=42
-# )
+gt.build_ground_truth(
+   file_a = 'vehicles_final.csv',
+   file_b = 'used_cars_aligned.csv',
+   output_gt = 'ground_truth.csv',
+   chunksize=200_000,
+   negatives_per_match=2,
+   random_seed=42
+)
 
 
 # ===============================
@@ -102,4 +126,17 @@ import utils
 #    test_ratio=0.1,
 #    seed=42
 # )
+
+
+
+
+# ===============================
+# STEP 4d – STRATEGIE DI BLOCKING
+# ===============================
+#
+# strategia B1: su manufacturer e anno
+# strategia B2: ___
+
+
+
 
