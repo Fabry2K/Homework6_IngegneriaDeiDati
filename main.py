@@ -78,14 +78,14 @@ import pandas as pd
 # per ogni match si creano 2 non match
 # per la creazione dei match e dei non match vengono considerati solo i record con Invalid = 0
 
-gt.build_ground_truth(
-   file_a = 'vehicles_final.csv',
-   file_b = 'used_cars_aligned.csv',
-   output_gt = 'ground_truth.csv',
-   chunksize=200_000,
-   negatives_per_match=2,
-   random_seed=42
-)
+# gt.build_ground_truth(
+#    file_a = 'vehicles_final.csv',
+#    file_b = 'used_cars_aligned.csv',
+#    output_gt = 'ground_truth.csv',
+#    chunksize=200_000,
+#    negatives_per_match=2,
+#    random_seed=42
+# )
 
 
 # ===============================
@@ -117,7 +117,7 @@ gt.build_ground_truth(
 # split della GROUND TRUTH: 70 - 15 - 15 
 
 # utils.split_ground_truth(
-#    input_gt = 'ground_truth.csv',
+#    input_gt = 'ground_truth_final.csv',
 #    train_out = 'train.csv',
 #    val_out = 'validation.csv',
 #    test_out = 'test.csv',
