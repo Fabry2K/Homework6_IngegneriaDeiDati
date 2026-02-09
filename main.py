@@ -4,6 +4,7 @@ import vin_checks as checks
 import normalization as norm
 import utils
 import pandas as pd
+import blocking
 
 
 
@@ -137,6 +138,13 @@ import pandas as pd
 # strategia B1: su manufacturer e anno
 # strategia B2: ___
 
+# Calcolo candidate pairs con blocking B1
+blocking.generate_candidate_pairs_B1(
+    file_a="vehicles_final.csv",
+    file_b="used_cars_final.csv",
+    output_file="candidate_pairs_B1.csv",
+    chunk_size=200_000
+)
 
 
 
