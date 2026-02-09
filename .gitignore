@@ -19,6 +19,10 @@ vehicles_final.csv
 test.csv
 train.csv
 validation.csv
+candidate_pairs_B1.csv
+candidate_pairs_B1.csv.zip
+candidate_pairs_B2.csv
+candidate_pairs_B2.csv.zip
 
 ===== OS / editor =====
 .DS_Store
