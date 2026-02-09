@@ -42,7 +42,7 @@ import blocking
 # utils.count_nulls_and_uniques("vehicles_aligned.csv", "vehicles_aligned")
 # utils.count_nulls_and_uniques("used_cars_aligned.csv", "used_cars_aligned")
 
-# 3.3: set del campo invalid = 1 per record con: VIN 
+# 3.3: set del campo invalid = 1 per record 
 
 # checks.mark_invalid_vin('vehicles_aligned.csv','vehicles_marked.csv',200000)
 # checks.mark_invalid_duplicate_vins('vehicles_marked.csv','vehicles_final.csv')
@@ -89,6 +89,8 @@ import blocking
 # )
 
 
+
+
 # ===============================
 # STEP 4b – RIMOZIONE VIN
 # ===============================
@@ -105,10 +107,25 @@ import blocking
 #     "used_cars_final.csv"
 # )
 
-
 # utils.remove_vins_from_ground_truth(
 #     "ground_truth.csv",
 #     "ground_truth_final.csv"
+# )
+
+# Normalizzazione float
+# norm.normalize_numeric_fields_no_decimal(
+#     input_csv = 'vehicles_final.csv', 
+#     output_csv = 'vehicles_final.csv'
+# )
+
+# norm.normalize_numeric_fields_no_decimal(
+#     input_csv = 'used_cars_final.csv', 
+#     output_csv = 'used_cars_final.csv'
+# )
+
+# norm.normalize_gt_numeric_fields_no_decimal(
+#     input_gt_csv = 'ground_truth_final.csv', 
+#     output_gt_csv = 'ground_truth_final.csv'
 # )
 
 # ===============================
@@ -130,7 +147,6 @@ import blocking
 
 
 
-
 # ===============================
 # STEP 4d – STRATEGIE DI BLOCKING
 # ===============================
@@ -139,12 +155,12 @@ import blocking
 # strategia B2: su drive
 
 # Calcolo candidate pairs con blocking B1
-# blocking.generate_candidate_pairs_B1(
-#     file_a="vehicles_final.csv",
-#     file_b="used_cars_final.csv",
-#     output_file="candidate_pairs_B1.csv",
-#     chunk_size=200_000
-# )
+blocking.generate_candidate_pairs_B1(
+    file_a="vehicles_final.csv",
+    file_b="used_cars_final.csv",
+    output_file="candidate_pairs_B1.csv",
+    chunk_size=200_000
+)
 
 
 
