@@ -64,11 +64,11 @@ import blocking
 #     output_csv = 'used_cars_aligned.csv'
 # )
 
-# dataset = pd.read_csv('vehicles_final.csv')
-# print(dataset['model'].value_counts())
+# dataset = pd.read_csv('vehicles_final.csv', dtype=str)
+# print(dataset['cylinders'].value_counts())
 
-# dataset = pd.read_csv('used_cars_aligned.csv')
-# print(dataset['model'].value_counts())
+# dataset = pd.read_csv('used_cars_aligned.csv', dtype=str)
+# print(dataset['cylinders'].value_counts())
 
 
 
@@ -83,7 +83,7 @@ import blocking
 #    file_a = 'vehicles_final.csv',
 #    file_b = 'used_cars_aligned.csv',
 #    output_gt = 'ground_truth.csv',
-#    chunksize=200_000,
+#    chunksize=500_000,
 #    negatives_per_match=2,
 #    random_seed=42
 # )
@@ -136,15 +136,24 @@ import blocking
 # ===============================
 #
 # strategia B1: su manufacturer e anno
-# strategia B2: ___
+# strategia B2: su drive
 
 # Calcolo candidate pairs con blocking B1
-blocking.generate_candidate_pairs_B1(
-    file_a="vehicles_final.csv",
-    file_b="used_cars_final.csv",
-    output_file="candidate_pairs_B1.csv",
-    chunk_size=200_000
-)
+# blocking.generate_candidate_pairs_B1(
+#     file_a="vehicles_final.csv",
+#     file_b="used_cars_final.csv",
+#     output_file="candidate_pairs_B1.csv",
+#     chunk_size=200_000
+# )
+
+
+
+
+# dataset = pd.read_csv('vehicles_final.csv', dtype=str)
+# print(dataset['cylinders'].value_counts())
+
+# dataset = pd.read_csv('used_cars_final.csv', dtype=str)
+# print(dataset['cylinders'].value_counts())
 
 
 

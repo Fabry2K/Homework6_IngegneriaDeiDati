@@ -23,7 +23,7 @@ def check_representativity(
     total_rows = 0
     vin_present = 0
 
-    for chunk in pd.read_csv(input_csv, chunksize=chunksize):
+    for chunk in pd.read_csv(input_csv, chunksize=chunksize, dtype=str):
         total_rows += len(chunk)
 
         # --- VIN ---
@@ -117,7 +117,7 @@ def count_nulls_and_uniques(path, name, chunksize=50_000):
     unique_sets = defaultdict(set)
     total_rows = 0
 
-    for chunk in pd.read_csv(path, chunksize=chunksize):
+    for chunk in pd.read_csv(path, chunksize=chunksize, dtype=str):
         if null_counts is None:
             null_counts = chunk.isnull().sum()
         else:
@@ -194,7 +194,7 @@ def deduplicate_csv(
     # -------------------------
     # Load
     # -------------------------
-    df = pd.read_csv(csv_path)
+    df = pd.read_csv(csv_path, dtype=str)
     initial_count = len(df)
 
     # -------------------------
@@ -318,7 +318,7 @@ def extract_valid_records(input_csv, output_csv, chunksize=200_000):
     first_chunk = True
     total_written = 0
 
-    for chunk in pd.read_csv(input_csv, chunksize=chunksize):
+    for chunk in pd.read_csv(input_csv, chunksize=chunksize, dtype=str):
         # Assicurati che la colonna 'invalid' esista
         if 'invalid' not in chunk.columns:
             raise ValueError("'invalid' column not found in CSV")
@@ -349,7 +349,7 @@ def count_unique_vins_in_memory(input_csv):
     caricando tutto in memoria.
     """
     # Carica tutto in memoria
-    df = pd.read_csv(input_csv, usecols=['vin'])
+    df = pd.read_csv(input_csv, usecols=['vin'], dtype=str)
 
     # Rimuovi VIN vuoti o NaN
     df = df[df['vin'].notna() & (df['vin'].str.strip() != "")]
@@ -376,7 +376,7 @@ def remove_vin_from_dataset(input_csv, output_csv, chunksize=200_000):
 
     first_chunk = True
 
-    for chunk_idx, chunk in enumerate(pd.read_csv(input_csv, chunksize=chunksize)):
+    for chunk_idx, chunk in enumerate(pd.read_csv(input_csv, chunksize=chunksize, dtype=str)):
         if "vin" in chunk.columns:
             chunk = chunk.drop(columns=["vin"])
 
@@ -402,7 +402,7 @@ def remove_vins_from_ground_truth(input_gt, output_gt, chunksize=200_000):
 
     first_chunk = True
 
-    for chunk_idx, chunk in enumerate(pd.read_csv(input_gt, chunksize=chunksize)):
+    for chunk_idx, chunk in enumerate(pd.read_csv(input_gt, chunksize=chunksize, dtype=str)):
         cols_to_drop = [c for c in ["a_vin", "b_vin"] if c in chunk.columns]
         if cols_to_drop:
             chunk = chunk.drop(columns=cols_to_drop)
@@ -441,7 +441,7 @@ def split_ground_truth(
         "Le percentuali devono sommare a 1"
 
     print(f"📥 Caricamento ground truth da {input_gt}...")
-    df = pd.read_csv(input_gt)
+    df = pd.read_csv(input_gt, dtype=str)
 
     total = len(df)
     print(f"📊 Record totali: {total}")

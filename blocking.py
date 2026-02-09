@@ -9,14 +9,14 @@ def generate_candidate_pairs_B1(file_a, file_b, output_file, chunk_size=200_000)
     - chunk_size: dimensione dei chunk di file_b
     """
     print(f"Carico il primo file ({file_a}) in RAM...")
-    df_a = pd.read_csv(file_a)
+    df_a = pd.read_csv(file_a, dtype=str)
     df_a = df_a[df_a['invalid'] == 0]  # consideriamo solo record validi
     print(f"Record validi in file A: {len(df_a)}")
 
     first_chunk = True
     total_pairs = 0
 
-    for i, chunk_b in enumerate(pd.read_csv(file_b, chunksize=chunk_size)):
+    for i, chunk_b in enumerate(pd.read_csv(file_b, chunksize=chunk_size, dtype=str)):
         print(f"\nProcesso chunk {i+1} di {chunk_b.shape[0]} righe da file B...")
 
         chunk_b = chunk_b[chunk_b['invalid'] == 0]  # solo record validi

@@ -12,8 +12,9 @@ def build_ground_truth(
     random.seed(random_seed)
 
     print("📥 Caricamento file A (in RAM)...")
-    df_a = pd.read_csv(file_a)
-    df_a = df_a[df_a["invalid"] == 0].reset_index(drop=True)
+    df_a = pd.read_csv(file_a, dtype=str)
+    # filtro per invalid = "0" come stringa
+    df_a = df_a[df_a["invalid"].fillna("1") == "0"].reset_index(drop=True)
     print(f"✔ Record validi in A: {len(df_a)}")
 
     # colonne da scrivere (escludo invalid)
@@ -25,8 +26,9 @@ def build_ground_truth(
 
     print("🚀 Inizio scansione file B a chunk...")
 
-    for chunk_idx, df_b in enumerate(pd.read_csv(file_b, chunksize=chunksize)):
-        df_b = df_b[df_b["invalid"] == 0].reset_index(drop=True)
+    for chunk_idx, df_b in enumerate(pd.read_csv(file_b, chunksize=chunksize, dtype=str)):
+        # filtro per invalid = "0" come stringa
+        df_b = df_b[df_b["invalid"].fillna("1") == "0"].reset_index(drop=True)
         if df_b.empty:
             continue
 
@@ -49,13 +51,9 @@ def build_ground_truth(
             row_b = b_by_vin[vin].iloc[0]
 
             # MATCH
-            match_row = {}
-            for c in cols_a:
-                match_row[f"a_{c}"] = row_a[c]
-            for c in cols_b:
-                match_row[f"b_{c}"] = row_b[c]
+            match_row = {f"a_{c}": row_a[c] for c in cols_a}
+            match_row.update({f"b_{c}": row_b[c] for c in cols_b})
             match_row["match"] = 1
-
             rows_out.append(match_row)
             match_count += 1
 
@@ -67,14 +65,9 @@ def build_ground_truth(
             b_diff = df_b[df_b["vin"] != vin]
             for _ in range(min(half, len(b_diff))):
                 row_b_nm = b_diff.sample(1).iloc[0]
-
-                nm = {}
-                for c in cols_a:
-                    nm[f"a_{c}"] = row_a[c]
-                for c in cols_b:
-                    nm[f"b_{c}"] = row_b_nm[c]
+                nm = {f"a_{c}": row_a[c] for c in cols_a}
+                nm.update({f"b_{c}": row_b_nm[c] for c in cols_b})
                 nm["match"] = 0
-
                 rows_out.append(nm)
                 nonmatch_count += 1
 
@@ -82,14 +75,9 @@ def build_ground_truth(
             a_diff = df_a[df_a["vin"] != vin]
             for _ in range(min(rest, len(a_diff))):
                 row_a_nm = a_diff.sample(1).iloc[0]
-
-                nm = {}
-                for c in cols_a:
-                    nm[f"a_{c}"] = row_a_nm[c]
-                for c in cols_b:
-                    nm[f"b_{c}"] = row_b[c]
+                nm = {f"a_{c}": row_a_nm[c] for c in cols_a}
+                nm.update({f"b_{c}": row_b[c] for c in cols_b})
                 nm["match"] = 0
-
                 rows_out.append(nm)
                 nonmatch_count += 1
 
