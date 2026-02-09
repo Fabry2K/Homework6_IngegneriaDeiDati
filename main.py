@@ -151,25 +151,24 @@ import blocking
 # STEP 4d – STRATEGIE DI BLOCKING
 # ===============================
 #
-# strategia B1: su manufacturer e anno
-# strategia B2: su drive
+# strategia B1: su manufacturer e year
+# strategia B2: su trnasmission, year 
 
 # Calcolo candidate pairs con blocking B1
-blocking.generate_candidate_pairs_B1(
+# blocking.generate_candidate_pairs_B1(
+#     file_a="vehicles_final.csv",
+#     file_b="used_cars_final.csv",
+#     output_file="D:\HM6\candidate_pairs_B1.csv",
+#     chunk_size=100_000
+# )
+
+
+# Calcolo candidate pairs con blocking B2
+blocking.generate_candidate_pairs_B2(
     file_a="vehicles_final.csv",
     file_b="used_cars_final.csv",
-    output_file="candidate_pairs_B1.csv",
-    chunk_size=200_000
+    output_file="candidate_pairs_B2.csv",
+    chunk_size=100_000
 )
-
-
-
-
-# dataset = pd.read_csv('vehicles_final.csv', dtype=str)
-# print(dataset['cylinders'].value_counts())
-
-# dataset = pd.read_csv('used_cars_final.csv', dtype=str)
-# print(dataset['cylinders'].value_counts())
-
 
 
