@@ -152,7 +152,7 @@ import record_linkage as rl
 # ===============================
 #
 # strategia B1: su manufacturer e year
-# strategia B2: su transmission, year 
+# strategia B2: su transmission, fuel type e year 
 
 # Calcolo candidate pairs con blocking B1
 # blocking.generate_candidate_pairs_B1(
@@ -164,12 +164,12 @@ import record_linkage as rl
 
 
 # Calcolo candidate pairs con blocking B2
-# blocking.generate_candidate_pairs_B2(
-#     file_a="vehicles_final.csv",
-#     file_b="used_cars_final.csv",
-#     output_file="candidate_pairs_B2.csv",
-#     chunk_size=100_000
-# )
+blocking.generate_candidate_pairs_B2(
+    file_a="vehicles_final.csv",
+    file_b="used_cars_final.csv",
+    output_file="candidate_pairs_B2.csv",
+    chunk_size=100_000
+)
 
 
 # ===================================
@@ -196,16 +196,16 @@ import record_linkage as rl
 # )
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    rl.evaluate_B1_parallel(
-        r'D:\HM6\candidate_pairs_B1.csv',  # usa raw string r'...' per evitare \H
-        r'test.csv',
-        chunk_size=500000,
-        match_threshold=0.70,
-        max_workers=8, 
-        backup_file='B1_recordLinkage.csv'
-    )
+#     rl.evaluate_B1_parallel(
+#         r'D:\HM6\candidate_pairs_B1.csv',  # usa raw string r'...' per evitare \H
+#         r'test.csv',
+#         chunk_size=500000,
+#         match_threshold=0.70,
+#         max_workers=8, 
+#         backup_file='B1_recordLinkage.csv'
+#     )
 
 
 
