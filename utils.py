@@ -419,9 +419,6 @@ def remove_vins_from_ground_truth(input_gt, output_gt, chunksize=200_000):
 
     print(f"✅ Ground truth senza VIN salvata in: {output_gt}")
 
-import pandas as pd
-import numpy as np
-
 def split_ground_truth(
     input_gt,
     train_out,
@@ -470,3 +467,18 @@ def split_ground_truth(
     print(f"  - {train_out}")
     print(f"  - {val_out}")
     print(f"  - {test_out}")
+
+
+import csv
+from itertools import islice
+
+def stampa_prime_10_righe(file_csv):
+    """
+    Legge un file CSV e stampa solo le prime 10 righe senza caricare tutto il file in memoria.
+    """
+    with open(file_csv, newline='', encoding='utf-8') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in islice(reader, 10):  # prende solo le prime 10 righe
+            print(row)
+
+

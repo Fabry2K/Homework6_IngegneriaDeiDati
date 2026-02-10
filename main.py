@@ -5,6 +5,7 @@ import normalization as norm
 import utils
 import pandas as pd
 import blocking
+import record_linkage as rl
 
 
 
@@ -146,13 +147,12 @@ import blocking
 # )
 
 
-
 # ===============================
 # STEP 4d – STRATEGIE DI BLOCKING
 # ===============================
 #
 # strategia B1: su manufacturer e year
-# strategia B2: su trnasmission, year 
+# strategia B2: su transmission, year 
 
 # Calcolo candidate pairs con blocking B1
 # blocking.generate_candidate_pairs_B1(
@@ -164,11 +164,35 @@ import blocking
 
 
 # Calcolo candidate pairs con blocking B2
-blocking.generate_candidate_pairs_B2(
-    file_a="vehicles_final.csv",
-    file_b="used_cars_final.csv",
-    output_file="candidate_pairs_B2.csv",
-    chunk_size=100_000
+# blocking.generate_candidate_pairs_B2(
+#     file_a="vehicles_final.csv",
+#     file_b="used_cars_final.csv",
+#     output_file="candidate_pairs_B2.csv",
+#     chunk_size=100_000
+# )
+
+
+# ===================================
+# STEP 4e – REGOLE PER RECORD LINKAGE
+# ===================================
+#
+# manufacturer -> esattamente uguale
+# model -> si calcola la somiglianza cosine similarity. più sono uguali le stringhe più punti prende. una similarità alta qui deve valere più di un punteggio pieno negli altri campi
+# year -> esattamente uguale
+# mileage -> punteggio in base alla distnza fra i due valori, più è diverso meno punti si conferisce
+# fuel_type -> esattamente uguale, ma ("flex fuel vehicle" = "gasoline"), ("biodiesel" = "diesel"), ("other" match con tutto, ma pochi punti)
+# transmission -> esattamente uguale
+# body_type -> esattamente uguale, ma ("truck" = "pickup"), ("offroad" è uguale a  "suv" e "pickup"), ("other" match con tutto, ma pochi punti)
+# cylinders -> esattamente uguale, ("other" fa match con tutto, ma meno punti)
+# drive -> esattamente uguale (con 4wd = awd), (fwd/rwd corrispondono anche a 4x2)
+# color -> se uguale punteggio pieno, altrimenti dai punteggio molto molto basso
+
+
+rl.evaluate_B1(
+    'D:\HM6\candidate_pairs_B1.csv', 
+    'test.csv', 
+    chunk_size=200000, 
+    match_threshold=0.70
 )
 
 
