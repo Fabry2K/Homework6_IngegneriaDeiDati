@@ -191,7 +191,7 @@ import record_linkage as rl
 rl.evaluate_B1(
     'D:\HM6\candidate_pairs_B1.csv', 
     'test.csv', 
-    chunk_size=200000, 
+    chunk_size=1000000, 
     match_threshold=0.70
 )
 
