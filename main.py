@@ -6,6 +6,7 @@ import utils
 import pandas as pd
 import blocking
 import record_linkage as rl
+import dedupe_train as dp
 
 
 
@@ -209,3 +210,8 @@ blocking.generate_candidate_pairs_B2(
 
 
 
+# ===============================
+# STEP 5a – DEDUPE TRAINING
+# ===============================
+#
+linker = dp.dedupe_labels("train.csv")
