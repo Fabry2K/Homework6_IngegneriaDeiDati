@@ -188,11 +188,24 @@ import record_linkage as rl
 # color -> se uguale punteggio pieno, altrimenti dai punteggio molto molto basso
 
 
-rl.evaluate_B1(
-    'D:\HM6\candidate_pairs_B1.csv', 
-    'test.csv', 
-    chunk_size=1000000, 
-    match_threshold=0.70
-)
+# rl.evaluate_B1(
+#     'D:\HM6\candidate_pairs_B1.csv', 
+#     'test.csv', 
+#     chunk_size=1000000, 
+#     match_threshold=0.70
+# )
+
+
+if __name__ == "__main__":
+
+    rl.evaluate_B1_parallel(
+        r'D:\HM6\candidate_pairs_B1.csv',  # usa raw string r'...' per evitare \H
+        r'test.csv',
+        chunk_size=500000,
+        match_threshold=0.70,
+        max_workers=8, 
+        backup_file='B1_recordLinkage.csv'
+    )
+
 
 
