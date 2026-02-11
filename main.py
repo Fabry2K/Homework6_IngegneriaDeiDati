@@ -7,6 +7,9 @@ import pandas as pd
 import blocking
 import record_linkage as rl
 import dedupe_train as dp
+import ditto_normalization as ditto_norm
+import ditto
+import torch
 
 
 
@@ -165,11 +168,11 @@ import dedupe_train as dp
 
 
 # Calcolo candidate pairs con blocking B2
-blocking.generate_candidate_pairs_B2(
-    file_a="vehicles_final.csv",
-    file_b="used_cars_final.csv",
-    output_file="D:\HM6\candidate_pairs_B2.csv",
-)
+# blocking.generate_candidate_pairs_B2(
+#     file_a="vehicles_final.csv",
+#     file_b="used_cars_final.csv",
+#     output_file="D:\HM6\candidate_pairs_B2.csv",
+# )
 
 
 # ===================================
@@ -210,7 +213,26 @@ blocking.generate_candidate_pairs_B2(
 
 
 # ===============================
-# STEP 5a – DEDUPE TRAINING
+# STEP 4f – DEDUPE TRAINING
 # ===============================
 #
 # linker = dp.dedupe_labels("train.csv")
+
+
+
+# ===============================
+# STEP 4g – DITTO TRAINING
+# ===============================
+#
+# Normalizzazione dei file della ground truth nel formato giusto per Ditto
+# ditto_norm.csv_to_ditto_format('train.csv', 'ditto_train.txt')
+# ditto_norm.csv_to_ditto_format('validation.csv', 'ditto_validation.txt')
+# ditto_norm.csv_to_ditto_format('test.csv', 'ditto_test.txt')
+
+ditto.train_ditto(
+    train_txt="ditto_train.txt",
+    valid_txt="ditto_validation.txt",
+    test_txt="ditto_test.txt",
+    run_name="Homework6",
+    device="cuda" if torch.cuda.is_available() else "cpu"
+)

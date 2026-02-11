@@ -24,6 +24,12 @@ candidate_pairs_B1.csv.zip
 candidate_pairs_B2.csv
 candidate_pairs_B2.csv.zip
 B1_recordLinkage.csv
+requirements.txt
+ditto_test.txt
+ditto_train.txt
+ditto_validation.txt
+
+ditto_light/
 
 ===== OS / editor =====
 .DS_Store
