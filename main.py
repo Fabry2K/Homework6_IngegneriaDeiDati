@@ -165,12 +165,12 @@ import dedupe_train as dp
 
 
 # Calcolo candidate pairs con blocking B2
-blocking.generate_candidate_pairs_B2(
-    file_a="vehicles_final.csv",
-    file_b="used_cars_final.csv",
-    output_file="candidate_pairs_B2.csv",
-    chunk_size=100_000
-)
+# blocking.generate_candidate_pairs_B2(
+#     file_a="vehicles_final.csv",
+#     file_b="used_cars_final.csv",
+#     output_file="candidate_pairs_B2.csv",
+#     chunk_size=100_000
+# )
 
 
 # ===================================
@@ -214,4 +214,4 @@ blocking.generate_candidate_pairs_B2(
 # STEP 5a – DEDUPE TRAINING
 # ===============================
 #
-linker = dp.dedupe_labels("train.csv")
+linker = dp.dedupe_labels("train.csv", "training.json")
