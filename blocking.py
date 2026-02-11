@@ -1,6 +1,7 @@
 import pandas as pd
 import csv
 import itertools
+import time
 
 def generate_candidate_pairs_B1(
     file_a,
@@ -84,79 +85,79 @@ def normalize_fuel_type_for_blocking(ft):
     else:
         return ft
 
+
 def generate_candidate_pairs_B2(
     file_a,
     file_b,
     output_file,
-    chunk_size=200_000
+    log_every=100_000   # stampa ogni N candidate pairs
 ):
-    """
-    Genera candidate pairs secondo il blocking B2: stesso transmission, year e fuel_type.
-    - Tutti i campi come stringhe (dtype=str)
-    - Nessun filtro su 'invalid'
-    - file_a entra tutto in RAM
-    - file_b letto a chunk
-    - Applica normalizzazione fuel_type
-    """
 
-    print(f"📥 Caricamento file A in RAM: {file_a}")
+    start_time = time.time()
+
+    print("📥 Caricamento completo in RAM...")
+
     df_a = pd.read_csv(file_a, dtype=str)
+    df_b = pd.read_csv(file_b, dtype=str)
+
     df_a["fuel_type"] = df_a["fuel_type"].apply(normalize_fuel_type_for_blocking)
-    print(f"✔ Record totali in A: {len(df_a)}")
+    df_b["fuel_type"] = df_b["fuel_type"].apply(normalize_fuel_type_for_blocking)
 
-    first_chunk = True
+    print(f"✔ Record A: {len(df_a)}")
+    print(f"✔ Record B: {len(df_b)}")
+
+    a_by_block = {
+        key: g for key, g in df_a.groupby(["transmission", "year", "fuel_type"])
+    }
+
+    b_by_block = {
+        key: g for key, g in df_b.groupby(["transmission", "year", "fuel_type"])
+    }
+
+    print("🚀 Inizio generazione candidate pairs (streaming)...")
+
     total_pairs = 0
+    next_log = log_every
 
-    print("🚀 Inizio scansione file B a chunk...")
+    with open(output_file, "w", newline="", encoding="utf-8") as f_out:
+        writer = None
 
-    for i, chunk_b in enumerate(pd.read_csv(file_b, chunksize=chunk_size, dtype=str)):
-        print(f"\n➡ Processo chunk {i+1} | righe lette: {len(chunk_b)}")
+        for block_key, block_a in a_by_block.items():
 
-        if chunk_b.empty:
-            print("↳ Chunk vuoto, salto.")
-            continue
-
-        # normalizzo fuel_type su B
-        chunk_b["fuel_type"] = chunk_b["fuel_type"].apply(normalize_fuel_type_for_blocking)
-
-        # indicizzazione veloce per blocchi
-        b_by_block = {
-            key: g for key, g in chunk_b.groupby(["transmission", "year", "fuel_type"])
-        }
-
-        rows_out = []
-
-        # ciclo sui record di A
-        for _, row_a in df_a.iterrows():
-            block_key = (row_a["transmission"], row_a["year"], row_a["fuel_type"])
-            if block_key not in b_by_block:
+            block_b = b_by_block.get(block_key)
+            if block_b is None:
                 continue
 
-            # blocco corrispondente in B
-            rows_b = b_by_block[block_key]
+            for _, row_a in block_a.iterrows():
+                for _, row_b in block_b.iterrows():
 
-            for _, row_b in rows_b.iterrows():
-                row_out = {}
-                for c in df_a.columns:
-                    row_out[f"a_{c}"] = row_a[c]
-                for c in chunk_b.columns:
-                    row_out[f"b_{c}"] = row_b[c]
-                rows_out.append(row_out)
-                total_pairs += 1
+                    row_out = {}
 
-        # scrivo subito il chunk di candidate pairs
-        if rows_out:
-            pd.DataFrame(rows_out).to_csv(
-                output_file,
-                mode="w" if first_chunk else "a",
-                index=False,
-                header=first_chunk
-            )
-            first_chunk = False
+                    for c in df_a.columns:
+                        row_out[f"a_{c}"] = row_a[c]
 
-        print(f"↳ Candidate pairs scritte dal chunk {i+1}: {len(rows_out)}")
-        print(f"↳ Totale candidate pairs finora: {total_pairs}")
+                    for c in df_b.columns:
+                        row_out[f"b_{c}"] = row_b[c]
+
+                    if writer is None:
+                        writer = csv.DictWriter(
+                            f_out,
+                            fieldnames=row_out.keys()
+                        )
+                        writer.writeheader()
+
+                    writer.writerow(row_out)
+                    total_pairs += 1
+
+                    # 🔥 LOG PROGRESSIVO
+                    if total_pairs >= next_log:
+                        elapsed = time.time() - start_time
+                        print(f"⏳ {total_pairs:,} candidate pairs scritte | "
+                              f"{elapsed:.1f} sec trascorsi")
+                        next_log += log_every
+
+    elapsed_total = time.time() - start_time
 
     print("\n✅ Blocking B2 completato")
-    print(f"📁 File output: {output_file}")
-    print(f"✔ Totale candidate pairs generate: {total_pairs}")
+    print(f"✔ Totale candidate pairs generate: {total_pairs:,}")
+    print(f"⏱ Tempo totale: {elapsed_total:.1f} secondi")
