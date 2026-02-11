@@ -216,7 +216,7 @@ import torch
 # STEP 4f – DEDUPE TRAINING
 # ===============================
 #
-# linker = dp.dedupe_labels("train.csv")
+# linker = dp.dedupe_labels("train.csv", "training.json")
 
 
 
@@ -236,3 +236,4 @@ ditto.train_ditto(
     run_name="Homework6",
     device="cuda" if torch.cuda.is_available() else "cpu"
 )
+

@@ -23,6 +23,7 @@ candidate_pairs_B1.csv
 candidate_pairs_B1.csv.zip
 candidate_pairs_B2.csv
 candidate_pairs_B2.csv.zip
+training.json
 B1_recordLinkage.csv
 requirements.txt
 ditto_test.txt
