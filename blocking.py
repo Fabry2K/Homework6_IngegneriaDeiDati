@@ -72,7 +72,6 @@ def generate_candidate_pairs_B1(
     print(f"📁 File output: {output_file}")
     print(f"✔ Totale candidate pairs generate: {total_pairs}")
 
-
 def normalize_fuel_type_for_blocking(ft):
     """Normalizza i valori speciali di fuel_type per il blocking."""
     ft = str(ft).strip().lower()
@@ -84,7 +83,6 @@ def normalize_fuel_type_for_blocking(ft):
         return "other"
     else:
         return ft
-
 
 def generate_candidate_pairs_B2(
     file_a,
@@ -161,3 +159,5 @@ def generate_candidate_pairs_B2(
     print("\n✅ Blocking B2 completato")
     print(f"✔ Totale candidate pairs generate: {total_pairs:,}")
     print(f"⏱ Tempo totale: {elapsed_total:.1f} secondi")
+
+

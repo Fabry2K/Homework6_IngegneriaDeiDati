@@ -1,11 +1,16 @@
 import torch
+from torch.utils.data import DataLoader, Dataset
 import argparse
 import random
 import numpy as np
-
 from ditto_light.dataset import DittoDataset
 from ditto_light.ditto import train
-
+from ditto_light.ditto import DittoModel, evaluate
+import time
+from sklearn import metrics
+from tqdm import tqdm
+from transformers import AutoTokenizer
+import argparse
 
 def train_ditto(train_txt, valid_txt, test_txt, run_name,
                 lm="distilbert", max_len=256,
@@ -79,3 +84,37 @@ def train_ditto(train_txt, valid_txt, test_txt, run_name,
     )
 
     print(f"[INFO] Training completed. Checkpoints saved under run_name: {run_name}")
+
+def evaluate_ditto_model(checkpoint_path, test_txt, lm='distilbert', max_len=256, batch_size=64, device=None):
+    """
+    Carica il modello Ditto e valuta sul file test.txt
+    """
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[INFO] Using device: {device}")
+
+    # dataset test
+    test_dataset = DittoDataset(test_txt, lm=lm, max_len=max_len)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=DittoDataset.pad)
+
+    # modello
+    model = DittoModel(lm=lm, device=device)
+    model.to(device)
+
+    # checkpoint
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(checkpoint['model'])
+    model.eval()
+    print("[INFO] Model loaded successfully.")
+
+    # evaluate
+    # print("[INFO] Evaluating model...")
+    # f1, best_th = evaluate(model, test_loader)
+    # print(f"[RESULT] F1 Score: {f1:.4f}, Best threshold: {best_th:.2f}")
+    # return f1, best_th
+
+    # evaluate
+    print("[INFO] Evaluating model...")
+    f1 = evaluate(model, test_loader, threshold=0.7)
+    print(f"[RESULT] F1 Score: {f1:.4f}")
+    return f1

@@ -10,6 +10,7 @@ import dedupe_train as dp
 import ditto_normalization as ditto_norm
 import ditto
 import torch
+import check_candidate_pairs 
 
 
 
@@ -229,11 +230,35 @@ import torch
 # ditto_norm.csv_to_ditto_format('validation.csv', 'ditto_validation.txt')
 # ditto_norm.csv_to_ditto_format('test.csv', 'ditto_test.txt')
 
-ditto.train_ditto(
-    train_txt="ditto_train.txt",
-    valid_txt="ditto_validation.txt",
-    test_txt="ditto_test.txt",
-    run_name="Homework6",
-    device="cuda" if torch.cuda.is_available() else "cpu"
-)
+# Addestramento del modello Ditto
+# ditto.train_ditto(
+#     train_txt="ditto_train.txt",
+#     valid_txt="ditto_validation.txt",
+#     test_txt="ditto_test.txt",
+#     run_name="Homework6",
+#     device="cuda" if torch.cuda.is_available() else "cpu"
+# )
 
+
+
+# Calcolo delle candidate pairs giuste
+# if __name__ == "__main__":
+
+#     check_candidate_pairs.filter_candidate_pairs(
+#         blocking_file="D:/HM6/candidate_pairs_B1.csv",
+#         test_file="test.csv",
+#         output_file="B1_pairs.csv",
+#         chunk_size=500_000, 
+#         max_workers=8        
+#     )
+
+# utils.remove_duplicates_from_csv("B1_pairs.csv", "B1_pairs_finale.csv")
+
+# trasforma il file con le candidate pairs in formato leggibile da Ditto
+# ditto_norm.generate_ditto_input('B1_pairs_finale.csv', 'test.csv', 'B1_ditto_pairs.txt')
+
+# Inferenza modello Ditto
+ditto.evaluate_ditto_model(
+    checkpoint_path = 'checkpoints/Homework6/model.pt',
+    test_txt = 'B1_ditto_pairs.txt'
+)

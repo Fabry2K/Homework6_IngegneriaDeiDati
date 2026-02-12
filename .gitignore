@@ -29,8 +29,11 @@ requirements.txt
 ditto_test.txt
 ditto_train.txt
 ditto_validation.txt
+B1_ditto_pairs.txt
+B1_pairs_finale.csv
 
 ditto_light/
+checkpoints/
 
 ===== OS / editor =====
 .DS_Store

@@ -482,3 +482,22 @@ def stampa_prime_10_righe(file_csv):
             print(row)
 
 
+import pandas as pd
+
+def remove_duplicates_from_csv(input_file, output_file):
+    print(f"[INFO] Lettura file: {input_file}")
+    
+    df = pd.read_csv(input_file, header=None, dtype=str)
+    initial_rows = len(df)
+    
+    print(f"[INFO] Righe iniziali: {initial_rows}")
+    
+    df_dedup = df.drop_duplicates()
+    final_rows = len(df_dedup)
+    
+    print(f"[INFO] Righe dopo rimozione duplicati: {final_rows}")
+    print(f"[INFO] Duplicati rimossi: {initial_rows - final_rows}")
+    
+    df_dedup.to_csv(output_file, header=False, index=False)
+    
+    print(f"[INFO] File scritto in: {output_file}")
