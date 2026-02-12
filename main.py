@@ -7,10 +7,10 @@ import pandas as pd
 import blocking
 import record_linkage as rl
 import dedupe_train as dp
-import ditto_normalization as ditto_norm
-import ditto
-import torch
-import check_candidate_pairs 
+# import ditto_normalization as ditto_norm
+# import ditto
+# import torch
+# import check_candidate_pairs 
 
 
 
@@ -217,7 +217,7 @@ import check_candidate_pairs
 # STEP 4f – DEDUPE TRAINING
 # ===============================
 #
-# linker = dp.dedupe_labels("train.csv", "training.json")
+linker = dp.dedupe_labels("train.csv", "training.json")
 
 
 
@@ -258,7 +258,7 @@ import check_candidate_pairs
 # ditto_norm.generate_ditto_input('B1_pairs_finale.csv', 'test.csv', 'B1_ditto_pairs.txt')
 
 # Inferenza modello Ditto
-ditto.evaluate_ditto_model(
-    checkpoint_path = 'checkpoints/Homework6/model.pt',
-    test_txt = 'B1_ditto_pairs.txt'
-)
+# ditto.evaluate_ditto_model(
+#     checkpoint_path = 'checkpoints/Homework6/model.pt',
+#     test_txt = 'B1_ditto_pairs.txt'
+# )
