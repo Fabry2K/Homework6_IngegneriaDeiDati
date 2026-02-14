@@ -2,11 +2,12 @@ import mediated_schema as ms
 import ground_truth as gt
 import vin_checks as checks
 import normalization as norm
-import utils
+#import utils
 import pandas as pd
-import blocking
+#import blocking
 import record_linkage as rl
 import dedupe_train as dp
+import evaluation_dedupe as eval_dp
 # import ditto_normalization as ditto_norm
 # import ditto
 # import torch
@@ -217,7 +218,12 @@ import dedupe_train as dp
 # STEP 4f – DEDUPE TRAINING
 # ===============================
 #
-linker = dp.dedupe_labels("train.csv", "training.json")
+#linker = dp.dedupe_labels("used_cars_final.csv", "vehicles_final.csv", "train.csv")
+precision, recall, f1 = eval_dp.evaluate_dedupe(
+    filename_pairwise="candidate_pairs_B1.csv",
+    settings_file="settings.json",
+    groundtruth_csv="test.csv"
+)
 
 
 

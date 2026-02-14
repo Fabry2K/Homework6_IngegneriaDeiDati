@@ -31,6 +31,7 @@ ditto_train.txt
 ditto_validation.txt
 B1_ditto_pairs.txt
 B1_pairs_finale.csv
+settings.json
 
 ditto_light/
 checkpoints/
