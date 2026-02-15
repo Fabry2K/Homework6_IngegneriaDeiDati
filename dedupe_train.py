@@ -1,207 +1,134 @@
 import csv
-import json
-import logging
 import dedupe
 from dedupe import variables
-from sklearn.linear_model import LogisticRegression
 import random
+import json
 
 ######################
-# LOGGING SETUP
+# UTILITY FUNCTIONS  #
 ######################
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-ch = logging.StreamHandler()
-formatter = logging.Formatter('[%(levelname)s] %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
 
-######################
-# UTILITY FUNCTIONS
-######################
 def to_float(x):
     try:
         return float(x)
     except:
         return None
 
-def other_as_match(v1, v2):
-    if v1 is None or v2 is None:
-        return None
-    if v1 == v2 == "other":
+def other_as_match(value_1, value_2):
+    if value_1 == value_2 == 'other':
         return 0
-    if v1 == "other" or v2 == "other":
-        return 0.5
-    return 1
-
-def body_matcher(v1, v2):
-    if v1 is None or v2 is None:
-        return None
-    if v1 == v2:
+    elif value_1 == 'other' or value_2 == 'other':
+        return 0
+    else:
         return 1
-    equivalences = {
-        ("truck", "pickup"),
-        ("pickup", "truck"),
-        ("offroad", "suv"),
-        ("suv", "offroad"),
-    }
-    if (v1, v2) in equivalences:
-        return 0
-    return 0
 
-def drive_matcher(v1, v2):
-    if v1 is None or v2 is None:
-        return None
-    equivalences = {
-        ("4wd", "awd"),
-        ("awd", "4wd"),
-        ("fwd", "4x2"),
-        ("4x2", "fwd"),
-        ("rwd", "4x2"),
-        ("4x2", "rwd"),
-    }
-    if v1 == v2:
+def body_matcher(value_1, value_2):
+    if other_as_match(value_1, value_2) == 0:
+        return 0
+    elif (value_1=='truck' and value_2=='pickup') or (value_1=='pickup' and value_2=='truck'):
+        return 0
+    elif (value_1=='offroad' and value_2=='suv') or (value_1=='suv' and value_2=='offroad'):
+        return 0
+    elif (value_1=='pickup' and value_2=='offroad') or (value_1=='offroad' and value_2=='pickup'):
+        return 0
+    else:
         return 1
-    if (v1, v2) in equivalences:
+
+def drive_matcher(value_1, value_2):
+    if (value_1=='4wd' and value_2=='awd') or (value_1=='awd' and value_2=='4wd'):
         return 0
-    return 0
+    elif (value_1=='fwd' and value_2=='4x2') or (value_1=='4x2' and value_2=='fwd'):
+        return 0
+    elif (value_1=='rwd' and value_2=='4x2') or (value_1=='4x2' and value_2=='rwd'):
+        return 0
+    else:
+        return 1
 
 ######################
-# READ DATASET
+# READ DATA FUNCTION #
 ######################
-def read_dataset(filename):
-    print(f"[read_dataset] Caricamento CSV: {filename}")
-    data = {}
-    numeric_fields = {"year", "mileage", "price"}
 
-    with open(filename, newline="", encoding="utf-8") as f:
+def readData(filename, sample_size=None, seed=42):
+    all_rows = []
+
+    # Leggi tutto
+    with open(filename, newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
-        for i, row in enumerate(reader):
-            record = {}
-            for k, v in row.items():
-                if v is None or v.strip() == "":
-                    record[k] = None
-                elif k in numeric_fields:
-                    record[k] = to_float(v)
-                else:
-                    record[k] = v.strip().lower()
-            # uso l'id reale se esiste, altrimenti indice
-            record_id = row.get("id", str(i))
-            data[str(record_id)] = record
+        for row in reader:
+            all_rows.append(row)
 
-    print(f"[read_dataset] Record caricati: {len(data)}")
-    return data
+    # Campionamento
+    if sample_size is not None and sample_size < len(all_rows):
+        random.seed(seed)
+        all_rows = random.sample(all_rows, sample_size)
 
-######################
-# SAMPLE DICTIONARY
-######################
-def sample_dict(d, n, seed=42):
-    random.seed(seed)
-    keys = random.sample(list(d.keys()), min(n, len(d)))
-    return {k: d[k] for k in keys}
+    data_A = {}
+    data_B = {}
+    labeled_pairs = {"match": [], "distinct": []}
 
-######################
-# GENERATE TRAINING JSON
-######################
-def generate_training_json(gt_file, data_A, data_B, json_file="training.json"):
-    """
-    gt_file: CSV con colonna 'match' (1=match, 0=distinct)
-    Assumiamo che le righe corrispondano rispettivamente a data_A e data_B campionati
-    """
-    print(f"[generate_training_json] Generazione training JSON da {gt_file}")
-    training = {"match": [], "distinct": []}
+    for i, row in enumerate(all_rows):
+        record_A = {
+            k[2:]: (to_float(v) if k[2:] == "mileage" else (v if v != "" else None))
+            for k, v in row.items() if k.startswith("a_")
+        }
+        record_B = {
+            k[2:]: (to_float(v) if k[2:] == "mileage" else (v if v != "" else None))
+            for k, v in row.items() if k.startswith("b_")
+        }
 
-    # otteniamo le chiavi dei dict campionati
-    keys_A = list(data_A.keys())
-    keys_B = list(data_B.keys())
+        data_A[f"A_{i}"] = record_A
+        data_B[f"B_{i}"] = record_B
 
-    with open(gt_file, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for i, row in enumerate(reader):
-            # usiamo modulo per non uscire dal numero di record campionati
-            a_id = keys_A[i % len(keys_A)]
-            b_id = keys_B[i % len(keys_B)]
+        match_val = row['match'].strip() == '1'
+        if match_val:
+            labeled_pairs["match"].append((record_A, record_B))
+        else:
+            labeled_pairs["distinct"].append((record_A, record_B))
 
-            recA = data_A[a_id]
-            recB = data_B[b_id]
-
-            if row["match"] in ("1", 1):
-                training["match"].append([recA, recB])
-            else:
-                training["distinct"].append([recA, recB])
-
-    with open(json_file, "w", encoding="utf-8") as jf:
-        json.dump(training, jf)
-
-    print(f"[generate_training_json] JSON salvato in {json_file}")
-    return json_file
+    return data_A, data_B, labeled_pairs
 
 ######################
-# DEDUPE TRAINING
+# DEDUPE TRAINING    #
 ######################
-def dedupe_labels(datafile_a, datafile_b, groundtruth_file, sample_size=1000):
-    print("\n[dedupe_labels] ===== INIZIO =====")
 
-    data_A = read_dataset(datafile_a)
-    data_B = read_dataset(datafile_b)
+def dedupe_labels(filename, sample_size=1000, settings_file="settings.json"):
+    data_A, data_B, labeled_pairs = readData(filename, sample_size=sample_size)
 
-    # 🔹 CAMPIONAMENTO
-    data_A_sample = sample_dict(data_A, sample_size)
-    data_B_sample = sample_dict(data_B, sample_size)
-    print(f"[dedupe_labels] Campionati {len(data_A_sample)} record da A e {len(data_B_sample)} da B")
+    print("[DEBUG] Esempio record A:", list(data_A.values())[0])
+    print("[DEBUG] Esempio record B:", list(data_B.values())[0])
 
-    # 🔹 GENERA TRAINING JSON
-    training_json = generate_training_json(
-        groundtruth_file,
-        data_A_sample,
-        data_B_sample,
-        "training.json"
-    )
+    print(f"[dedupe_labels] Coppie match: {len(labeled_pairs['match'])}")
+    print(f"[dedupe_labels] Coppie distinct: {len(labeled_pairs['distinct'])}")
 
-    # 🔹 DEFINIZIONE CAMPI
     fields = [
-        variables.String("manufacturer", has_missing=True),
-        variables.String("model", has_missing=True),
-        variables.Exact("year", has_missing=True),
-        variables.Price("mileage", has_missing=True),
-        variables.Custom("fuel_type", comparator=other_as_match, has_missing=True),
-        variables.String("transmission", has_missing=True),
-        variables.Custom("body_type", comparator=body_matcher, has_missing=True),
-        variables.Custom("cylinders", comparator=other_as_match, has_missing=True),
-        variables.Custom("drive", comparator=drive_matcher, has_missing=True),
-        variables.String("color", has_missing=True),
+        variables.String('manufacturer', has_missing=True),
+        variables.Text('model', has_missing=True),
+        variables.Exact('year', has_missing=True),
+        variables.Price('mileage', has_missing=True),
+        variables.Custom('fuel_type', comparator=other_as_match, has_missing=True),
+        variables.String('transmission', has_missing=True),
+        variables.Custom('body_type', comparator=body_matcher, has_missing=True),
+        variables.Custom('cylinders', comparator=other_as_match, has_missing=True),
+        variables.Custom('drive', comparator=drive_matcher, has_missing=True),
+        variables.Text('color', has_missing=True)
     ]
 
-    # 🔹 CREAZIONE LINKER
     print("[dedupe_labels] Creo RecordLink")
-    linker = dedupe.RecordLink(fields, num_cores=4)
+    linker = dedupe.RecordLink(fields)
 
-    # 🔹 LOGISTIC REGRESSION
-    linker.classifier = LogisticRegression(
-        max_iter=500,
-        solver="lbfgs"
-    )
+    print("[dedupe_labels] Avvio prepare_training")
+    linker.prepare_training(data_A, data_B)
 
-    # 🔹 PREPARE TRAINING
-    print("[dedupe_labels] prepare_training()")
-    with open(training_json, "r", encoding="utf-8") as tf:
-        linker.prepare_training(
-            data_A_sample,
-            data_B_sample,
-            training_file=tf,
-            sample_size=5000
-        )
-    print("[dedupe_labels] prepare_training COMPLETATO")
+    print("[dedupe_labels] Passo le coppie etichettate")
+    linker.mark_pairs(labeled_pairs)
 
-    # 🔹 TRAINING
-    logging.info(">>> INIZIO TRAINING <<<")
-    linker.train(recall=0.8, index_predicates=False)
-    logging.info(">>> FINE TRAINING <<<")
+    print("[dedupe_labels] Training in corso...")
+    linker.train()
+    print("[dedupe_labels] Training completato ✅")
 
-    # 🔹 SALVA SETTINGS
-    with open("settings.json", "wb") as sf:
+    # 🔹 SALVATAGGIO AUTOMATICO DEL MODELLO
+    with open(settings_file, "wb") as sf:
         linker.write_settings(sf)
-    print("[dedupe_labels] settings.json salvato")
-    print("[dedupe_labels] ===== FINE =====\n")
+    print(f"[dedupe_labels] Settings salvati in {settings_file}")
 
     return linker

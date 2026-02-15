@@ -2,20 +2,22 @@ import csv
 import dedupe
 import itertools
 
+
 def to_float(val):
+    """Converte una stringa in float. Rimuove spazi e virgole. Restituisce None se non convertibile."""
+    if val is None:
+        return None
     try:
+        val = val.replace(",", "").strip()
+        if val == "":
+            return None
         return float(val)
-    except (ValueError, TypeError):
+    except (ValueError, AttributeError):
         return None
 
-def read_pairwise_dataset(filename):
-    """
-    Legge un CSV pairwise e crea due dataset separati (data_1, data_2)
-    mantenendo le stesse regole di read_dataset:
-    - numerici in float
-    - stringhe strip + lower
-    - valori vuoti in None
-    """
+
+def read_pairwise_dataset(filename, verbose_every=1000):
+    """Legge un CSV pairwise e crea due dataset separati (data_1, data_2)."""
     numeric_fields = {"year", "mileage", "price"}
 
     data_1 = {}
@@ -30,25 +32,24 @@ def read_pairwise_dataset(filename):
             record_b = {}
 
             for k, v in row.items():
-                # conversione valore
+                # Conversione valore
                 if v is None or v.strip() == "":
                     value = None
                 elif k in numeric_fields:
                     value = to_float(v)
+                    if value is None:
+                        print(f"[DEBUG] riga {i}, campo {k} non convertibile: '{v}'")
                 else:
                     value = v.strip().lower()
 
-                # campi condivisi tra A e B
+                # Campi condivisi tra A e B
                 if k in ("manufacturer", "year"):
                     record_a[k] = value
                     record_b[k] = value
-                # campi lato A (_a)
                 elif k.endswith("_a"):
-                    record_a[k[:-2]] = value  # rimuove _a
-                # campi lato B (_b)
+                    record_a[k[:-2]] = value
                 elif k.endswith("_b"):
-                    record_b[k[:-2]] = value  # rimuove _b
-                # campi generici senza suffisso
+                    record_b[k[:-2]] = value
                 else:
                     record_a[k] = value
                     record_b[k] = value
@@ -56,14 +57,29 @@ def read_pairwise_dataset(filename):
             data_1[f"A_{i}"] = record_a
             data_2[f"B_{i}"] = record_b
 
+            if i < 5:
+                print(f"[pairwise] riga {i}: A_{i}, B_{i}")
+            elif i % verbose_every == 0:
+                print(f"[pairwise] riga {i} letta...")
+
     print(f"[read_pairwise_dataset] Record lato A: {len(data_1)}, lato B: {len(data_2)}")
     return data_1, data_2
 
+
+def clean_numeric_fields(data, numeric_fields={"year", "mileage", "price"}):
+    """Assicura che tutti i campi numerici siano float o None."""
+    for record_id, record in data.items():
+        for field in numeric_fields:
+            val = record.get(field)
+            if val is None:
+                continue
+            if not isinstance(val, (int, float)):
+                record[field] = to_float(str(val))
+    return data
+
+
 def index_B1_pairwise(data_1, data_2, chunk_size=100000):
-    """
-    Assegna un indice univoco a ogni coppia (manufacturer, year)
-    per due dataset distinti (record linkage).
-    """
+    """Blocking su (manufacturer, year) per due dataset distinti."""
     print("[index_B1] Avvio blocking su (manufacturer, year)")
     pair_to_index = {}
     current_index = 0
@@ -99,10 +115,11 @@ def index_B1_pairwise(data_1, data_2, chunk_size=100000):
     print(f"[index_B1] Totale blocchi unici creati: {len(pair_to_index)}")
     return data_1, data_2, pair_to_index
 
-def read_groundtruth_pairwise(csv_file):
+
+def read_groundtruth_pairwise(csv_file, valid_ids=None, verbose_every=1000):
     """
-    Legge un CSV groundtruth pairwise senza ID e restituisce un set di coppie
-    frozenset([A_i, B_i]) con ID coerenti con read_pairwise_dataset.
+    Legge CSV groundtruth pairwise e filtra ID non presenti nel dataset.
+    valid_ids: set degli ID effettivamente presenti in data_1/data_2
     """
     groundtruth = set()
     print(f"[read_groundtruth_pairwise] Caricamento CSV ground truth: {csv_file}")
@@ -111,64 +128,74 @@ def read_groundtruth_pairwise(csv_file):
         for i, _ in enumerate(reader):
             a_id = f"A_{i}"
             b_id = f"B_{i}"
-            groundtruth.add(frozenset([a_id, b_id]))
-            if i < 5:  # stampa primi 5 esempi
-                print(f"[groundtruth] riga {i}: {a_id}, {b_id}")
 
-    print(f"[read_groundtruth_pairwise] Coppie ground truth totali: {len(groundtruth)}")
+            # Ignora ID non validi
+            if valid_ids is not None and (a_id not in valid_ids or b_id not in valid_ids):
+                continue
+
+            groundtruth.add(frozenset([a_id, b_id]))
+
+            if i < 5:
+                print(f"[groundtruth] riga {i}: {a_id}, {b_id}")
+            elif i % verbose_every == 0:
+                print(f"[groundtruth] riga {i} letta...")
+
+    print(f"[read_groundtruth_pairwise] Coppie ground truth totali filtrate: {len(groundtruth)}")
     return groundtruth
 
 
-
-def evaluate_dedupe(filename_pairwise, settings_file, groundtruth_csv):
-    """
-    Valuta le prestazioni di dedupe RecordLink su un dataset pairwise
-    confrontando i risultati con la groundtruth CSV.
-    """
+def evaluate_dedupe(filename_pairwise, settings_file, groundtruth_csv, use_static=True, manual_threshold=0.9):
+    """Valuta le prestazioni di dedupe RecordLink su dataset pairwise."""
     print("[evaluate_dedupe] STEP 1: Carico dati pairwise")
     data_1, data_2 = read_pairwise_dataset(filename_pairwise)
+
+    # Pulizia campi numerici
+    data_1 = clean_numeric_fields(data_1)
+    data_2 = clean_numeric_fields(data_2)
 
     print("[evaluate_dedupe] STEP 2: Applico blocking")
     data_1, data_2, pair_to_index = index_B1_pairwise(data_1, data_2)
 
     print("[evaluate_dedupe] STEP 3: Carico modello RecordLink addestrato")
     with open(settings_file, "rb") as sf:
-        linker = dedupe.StaticRecordLink(sf)
+        linker = dedupe.StaticRecordLink(sf) if use_static else dedupe.RecordLink(sf)
 
-    print("[evaluate_dedupe] STEP 4: Calcolo soglia ottimale")
-    threshold = linker.threshold(data_1, data_2, recall_weight=2.0)
-    print(f"[evaluate_dedupe] Threshold calcolata: {threshold:.4f}")
+    # STEP 4: soglia
+    threshold = manual_threshold if use_static else linker.threshold(data_1, data_2, recall_weight=2.0)
+    print(f"[evaluate_dedupe] Usando soglia: {threshold}")
 
     print("[evaluate_dedupe] STEP 5: Eseguo il record linkage")
     linked_records = linker.join(data_1, data_2, threshold)
 
-    # Costruisco set di coppie predette
     predicted_pairs = set()
     for cluster, score in linked_records:
-        if len(cluster) == 2:
-            predicted_pairs.add(frozenset(cluster))
-        else:
-            for pair in itertools.combinations(cluster, 2):
-                predicted_pairs.add(frozenset(pair))
+        for pair in itertools.combinations(cluster, 2):
+            predicted_pairs.add(frozenset(pair))
 
     print(f"[evaluate_dedupe] Coppie predette totali: {len(predicted_pairs)}")
-    if len(predicted_pairs) > 5:
-        print(f"[evaluate_dedupe] Esempio prime 5 coppie predette: {list(predicted_pairs)[:5]}")
 
-    # Ground truth
-    groundtruth_pairs = read_groundtruth_pairwise(groundtruth_csv)
+    # IDs validi
+    all_ids = set(data_1.keys()) | set(data_2.keys())
+    groundtruth_pairs = read_groundtruth_pairwise(groundtruth_csv, valid_ids=all_ids)
 
-    # 🔹 Statistiche per blocco
+    # Statistiche per blocco
     block_stats = {}
     for record_id, record in {**data_1, **data_2}.items():
         blk = record.get("block_index")
         if blk not in block_stats:
-            block_stats[blk] = {"pred": 0, "gt": 0, "tp": 0, "example": (record.get("manufacturer"), record.get("year"))}
+            block_stats[blk] = {
+                "pred": 0,
+                "gt": 0,
+                "tp": 0,
+                "example": (record.get("manufacturer"), record.get("year"))
+            }
 
-    # Conta predette e ground truth per blocco
     for pair in predicted_pairs:
         first = list(pair)[0]
-        blk = data_1.get(first, data_2.get(first)).get("block_index")
+        record = data_1.get(first) or data_2.get(first)
+        if record is None:
+            continue
+        blk = record.get("block_index")
         if blk is not None:
             block_stats[blk]["pred"] += 1
             if pair in groundtruth_pairs:
@@ -176,12 +203,15 @@ def evaluate_dedupe(filename_pairwise, settings_file, groundtruth_csv):
 
     for pair in groundtruth_pairs:
         first = list(pair)[0]
-        blk = data_1.get(first, data_2.get(first)).get("block_index")
+        record = data_1.get(first) or data_2.get(first)
+        if record is None:
+            continue
+        blk = record.get("block_index")
         if blk is not None:
             block_stats[blk]["gt"] += 1
 
     # Stampa dettagli blocco
-    print("[evaluate_dedupe] Statistiche per blocco (manufacturer, year):")
+    print("[evaluate_dedupe] Statistiche per blocco:")
     for blk, stats in sorted(block_stats.items()):
         man, year = stats["example"]
         print(f"  Block {blk} ({man}, {year}): predette={stats['pred']}, groundtruth={stats['gt']}, TP={stats['tp']}")

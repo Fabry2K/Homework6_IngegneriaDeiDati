@@ -2,6 +2,7 @@
 venv/
 pycache/
 *.py[cod]
+venv_dedupe/
 
 ===== File CSV =====
 used_cars_data.csv

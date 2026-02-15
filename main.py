@@ -7,7 +7,7 @@ import pandas as pd
 #import blocking
 import record_linkage as rl
 import dedupe_train as dp
-import evaluation_dedupe as eval_dp
+import evaluation_dedupe_B1 as eval_dp
 # import ditto_normalization as ditto_norm
 # import ditto
 # import torch
@@ -219,12 +219,13 @@ import evaluation_dedupe as eval_dp
 # ===============================
 #
 #linker = dp.dedupe_labels("used_cars_final.csv", "vehicles_final.csv", "train.csv")
-precision, recall, f1 = eval_dp.evaluate_dedupe(
-    filename_pairwise="candidate_pairs_B1.csv",
-    settings_file="settings.json",
-    groundtruth_csv="test.csv"
-)
 
+if __name__ == "__main__":
+    precision, recall, f1 = eval_dp.evaluate_dedupe(
+        filename_pairwise="B1_pairs_finale.csv",
+        settings_file="settings.json",
+        groundtruth_csv="validation.csv"
+    )
 
 
 # ===============================
